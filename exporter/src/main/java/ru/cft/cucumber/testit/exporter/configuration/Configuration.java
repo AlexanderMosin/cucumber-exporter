@@ -1,0 +1,32 @@
+package ru.cft.cucumber.testit.exporter.configuration;
+
+import lombok.Getter;
+import lombok.Setter;
+
+/**
+ * Represents configuration class for loading Cucumber report in TestIt.
+ */
+@Getter
+@Setter
+public class Configuration {
+
+    /**
+     * TestIt url
+     */
+    private String url;
+
+    /**
+     * TestIt authentication API token
+     */
+    private String privateToken;
+
+    /**
+     * The identifier of TestIt project.
+     */
+    private String projectId;
+
+    /**
+     * The identifier of TestIt configuration.
+     */
+    private String configurationId;
+}
