@@ -1,0 +1,28 @@
+jar {
+    exclude('logback.xml')
+}
+
+dependencies {
+    def jacksonVersion = '2.9.8'
+    def lombokVersion = '1.18.12'
+    def slf4jVersion = '1.7.25'
+
+    implementation 'commons-io:commons-io:2.5'
+
+    compile "org.projectlombok:lombok:$lombokVersion"
+    annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+
+    implementation "org.slf4j:slf4j-api:$slf4jVersion"
+    implementation "org.slf4j:jul-to-slf4j:$slf4jVersion"
+    runtimeOnly "org.slf4j:jcl-over-slf4j:$slf4jVersion"
+
+    runtimeOnly 'ch.qos.logback:logback-classic:1.2.3'
+
+    implementation "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion"
+    implementation "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
+
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion"
+
+    implementation 'org.apache.httpcomponents:fluent-hc:4.5.13'
+}

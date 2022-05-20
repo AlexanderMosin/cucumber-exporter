@@ -1,0 +1,31 @@
+buildscript {
+    ext.repos = {
+        maven {
+            url "http://dpci-dev.ftc.ru:8081/artifactory/repo"
+        }
+    }
+    repositories repos
+
+    dependencies {
+        classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.7.1"
+    }
+}
+
+allprojects {
+    repositories repos
+    buildscript {
+        repositories repos
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+}
+
+apply plugin: 'org.sonarqube'
+
+sonarqube {
+    properties {
+        property "sonar.branch.name", "${System.getProperty("BRANCH")}"
+    }
+}

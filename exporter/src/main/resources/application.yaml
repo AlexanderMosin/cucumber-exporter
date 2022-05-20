@@ -1,0 +1,5 @@
+testIt:
+  url: "http://testit.tsk/api"
+  privateToken: "UGFOT0VwaXMzR3ZZa1VyVGtN"
+  projectId: "17801868-092e-4711-8572-c5ba487abb97"
+  configurationId: "4487302f-31e8-4f28-9f5e-218d7fd78213"
