@@ -18,6 +18,11 @@ public class CucumberStep {
     /**
      * The result of step.
      */
-    private CucumberTestResult result;
+    private CucumberStepRunResult result;
+
+    /**
+     * The information about method of the class and values of the method arguments.
+     */
+    private MethodMatch match;
 }
 
