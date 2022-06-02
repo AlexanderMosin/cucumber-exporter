@@ -4,10 +4,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 
 /**
- * Represents possible test statuses.
+ * Represents possible step run statuses.
  */
 @Getter
-public enum CucumberTestStatus {
+public enum CucumberStepRunStatus {
 
     @JsonProperty("failed")
     FAILED("Failed"),
@@ -22,11 +22,11 @@ public enum CucumberTestStatus {
     UNDEFINED("Undefined");
 
     /**
-     * The value of test status.
+     * The value of step run status.
      */
     private final String value;
 
-    CucumberTestStatus(String value) {
+    CucumberStepRunStatus(String value) {
         this.value = value;
     }
 }

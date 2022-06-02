@@ -10,6 +10,7 @@ import org.apache.http.util.EntityUtils;
 import ru.cft.cucumber.testit.exporter.configuration.Configuration;
 import ru.cft.cucumber.testit.exporter.json.JsonSerializer;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberReport;
+import ru.cft.cucumber.testit.exporter.model.testit.TestRunData;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunResult;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRun;
 
@@ -41,8 +42,7 @@ public class CucumberReportLoader {
         this.configuration = configuration;
     }
 
-    private String createTestRun(TestItObjectBuilder requestBuilder) {
-        TestRun testRun = requestBuilder.buildTestRun();
+    private String createTestRun(TestRun testRun) {
         HttpResponse response = sendPostRequest(TEST_RUNS_PATH, testRun, HttpStatus.SC_CREATED);
 
         String testRunId;
@@ -56,8 +56,7 @@ public class CucumberReportLoader {
         return testRunId;
     }
 
-    private void addResultsToTestRun(String testRunId, TestItObjectBuilder requestBuilder) {
-        List<TestRunResult> testRunResults = requestBuilder.buildTestRunResults();
+    private void addResultsToTestRun(String testRunId,  List<TestRunResult> testRunResults) {
         sendPostRequest(
                 String.format(TEST_RESULTS_PATH, testRunId),
                 testRunResults,
@@ -67,39 +66,40 @@ public class CucumberReportLoader {
 
     public void load(String cucumberReportFilePath) {
         CucumberReport report = CucumberReportParser.parse(cucumberReportFilePath);
-        TestItObjectBuilder requestBuilder = new TestItObjectBuilder(
-                report,
+
+        CucumberReportTransformer reportTransformer = new CucumberReportTransformer(
                 configuration.getProjectId(),
                 configuration.getConfigurationId()
         );
 
-        String testRunId = createTestRun(requestBuilder);
-        addResultsToTestRun(testRunId, requestBuilder);
+        List<TestRunData> testRunsData = reportTransformer.transform(report);
+        for (TestRunData testRunData : testRunsData) {
+            String testRunId = createTestRun(testRunData.getTestRun());
+            addResultsToTestRun(testRunId, testRunData.getTestRunResults());
+        }
     }
 
-    private HttpResponse sendPostRequest(String url, Object requestBody, int expectedStatusCode) {
+    private HttpResponse sendPostRequest(String path, Object requestBody, int expectedStatusCode) {
         String json = JsonSerializer.serialize(requestBody);
         try {
-            HttpResponse response = Request.Post(configuration.getUrl() + url)
+            HttpResponse response = Request.Post(configuration.getUrl() + path)
                     .bodyString(json, APPLICATION_JSON)
                     .addHeader(HttpHeaders.AUTHORIZATION, PRIVATE_TOKEN_PREFIX + configuration.getPrivateToken())
                     .execute()
                     .returnResponse();
 
             int statusCode = response.getStatusLine().getStatusCode();
+            log.info("POST request: {}", configuration.getUrl() + path);
             log.info("Response status: {}", statusCode);
 
             if (statusCode != expectedStatusCode) {
-                log.error(
-                        "Response status: {}\nResponse body\n{}",
-                        statusCode,
-                        EntityUtils.toString(response.getEntity())
-                );
+                log.error("Request body:\n{}", json);
+                log.error("Response body:\n{}", EntityUtils.toString(response.getEntity()));
                 throw new ExporterException(String.format("Wrong status. Expected status: %d", expectedStatusCode));
             }
             return response;
         } catch (Exception e) {
-            throw new ExporterException(String.format("Error occurred while sending POST %s:%n", url), e);
+            throw new ExporterException(String.format("Error occurred while sending POST %s:%n", path), e);
         }
     }
 }
