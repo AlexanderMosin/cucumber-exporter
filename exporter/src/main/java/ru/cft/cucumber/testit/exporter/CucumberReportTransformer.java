@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.time.format.DateTimeFormatter.ofLocalizedDateTime;
 import static ru.cft.cucumber.testit.exporter.model.cucumber.CucumberStepRunStatus.FAILED;
@@ -64,7 +65,9 @@ public class CucumberReportTransformer {
             testRunsData.add(testRunData);
         }
 
-        return testRunsData;
+        return testRunsData.stream()
+                .sorted((data1, data2) -> data2.getTestRun().getName().compareToIgnoreCase(data1.getTestRun().getName()))
+                .collect(Collectors.toList());
     }
 
     private TestRun buildTestRun(String version, List<CucumberElement> cucumberElements) {

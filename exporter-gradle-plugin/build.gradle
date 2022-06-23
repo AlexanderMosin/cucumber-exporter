@@ -1,0 +1,14 @@
+apply plugin: 'java-gradle-plugin'
+
+gradlePlugin {
+    plugins {
+        simplePlugin {
+            id = 'ru.cft.cucumber.testit.exporter'
+            implementationClass = 'ru.cft.cucumber.testit.exporter.gradle.plugin.CucumberTestItExporterPlugin'
+        }
+    }
+}
+
+dependencies {
+    implementation project(':exporter')
+}

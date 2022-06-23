@@ -2,11 +2,13 @@ buildscript {
     ext.repos = {
         maven {
             url "http://dpci-dev.ftc.ru:8081/artifactory/repo"
+            allowInsecureProtocol true
         }
     }
     repositories repos
 
     dependencies {
+        classpath 'org.jfrog.buildinfo:build-info-extractor-gradle:4.18.0'
         classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.7.1"
     }
 }
@@ -20,6 +22,43 @@ allprojects {
 
 subprojects {
     apply plugin: 'java'
+    apply plugin: 'maven-publish'
+    apply plugin: 'com.jfrog.artifactory'
+
+    repositories repos
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(11)
+        }
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = "UTF-8"
+        options.debug = true
+        options.debugOptions.debugLevel = "source,lines"
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                artifactId = "$rootProject.name-$project.name"
+                from components.java
+            }
+        }
+    }
+
+    artifactoryPublish {
+        publications ("mavenJava")
+    }
+
+    dependencies {
+        def lombokVersion = '1.18.12'
+
+        compile "org.projectlombok:lombok:$lombokVersion"
+        annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+    }
 }
 
 apply plugin: 'org.sonarqube'
