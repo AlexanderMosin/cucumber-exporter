@@ -1,3 +1,4 @@
-rootProject.name = 'cucumber-testit-exporter'
+rootProject.name = 'cucumber-testit'
 include 'exporter'
+include 'exporter-gradle-plugin'
 
