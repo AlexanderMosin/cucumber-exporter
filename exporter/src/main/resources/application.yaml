@@ -3,3 +3,5 @@ testIt:
   privateToken: "eWVHdUNFNG54MWVmc1BlMVFF"
   projectId: "17801868-092e-4711-8572-c5ba487abb97"
   configurationId: "07651f7b-f235-4025-bf01-b0c978ab8c32"
+  testRunMetadata: "release/3.1.1"
+  jenkinsLink: "https://j.ftc.ru/view/cucumbers/job/qpay-online-parallel-it/2818/"

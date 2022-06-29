@@ -37,6 +37,16 @@ public class CucumberTestItExporterTask extends DefaultTask {
      */
     private String configurationId;
 
+    /**
+     * The metadata of test run.
+     */
+    private String testRunMetaData;
+
+    /**
+     * The link to Jenkins build.
+     */
+    private String jenkinsLink;
+
     @Option(option = "cucumber-report", description = "Path to cucumber report file")
     public void setCucumberReportFilePath(String cucumberReportFilePath) {
         this.cucumberReportFilePath = cucumberReportFilePath;
@@ -87,6 +97,26 @@ public class CucumberTestItExporterTask extends DefaultTask {
         return configurationId;
     }
 
+    @Option(option = "metadata", description = "The metadata of test run")
+    public void setTestRunMetaData(String testRunMetaData) {
+        this.testRunMetaData = testRunMetaData;
+    }
+
+    @Input
+    public String getTestRunMetaData() {
+        return testRunMetaData;
+    }
+
+    @Option(option = "jenkins-link", description = "The link to Jenkins build")
+    private void setJenkinsLink(String jenkinsLink) {
+        this.jenkinsLink = jenkinsLink;
+    }
+
+    @Input
+    private String getJenkinsLink() {
+        return jenkinsLink;
+    }
+
     @TaskAction
     public void load() {
         Configuration configuration = new Configuration();
@@ -94,6 +124,8 @@ public class CucumberTestItExporterTask extends DefaultTask {
         configuration.setPrivateToken(getPrivateToken());
         configuration.setProjectId(getProjectId());
         configuration.setConfigurationId(getConfigurationId());
+        configuration.setTestRunMetadata(getTestRunMetaData());
+        configuration.setJenkinsLink(getJenkinsLink());
 
         CucumberReportLoader reportLoader = new CucumberReportLoader(configuration);
         reportLoader.load(cucumberReportFilePath);

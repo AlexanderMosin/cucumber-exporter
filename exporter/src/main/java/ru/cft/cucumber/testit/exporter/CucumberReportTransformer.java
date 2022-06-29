@@ -39,12 +39,20 @@ public class CucumberReportTransformer {
 
     private final String configurationId;
 
+    private final String testRunMetadata;
+
+    private final String jenkinsLink;
+
     public CucumberReportTransformer(
             String projectId,
-            String configurationId
+            String configurationId,
+            String testRunMetadata,
+            String jenkinsLink
     ) {
         this.projectId = projectId;
         this.configurationId = configurationId;
+        this.testRunMetadata = testRunMetadata;
+        this.jenkinsLink = jenkinsLink;
     }
 
     public List<TestRunData> transform(CucumberReport report) {
@@ -79,12 +87,13 @@ public class CucumberReportTransformer {
                 .configurationIds(List.of(configurationId))
                 .name(
                         String.format(
-                                "Test run for API version %s, %s",
+                                "Test run for API version %s, %s, %s",
                                 version,
+                                testRunMetadata,
                                 LocalDateTime.now().format(ofLocalizedDateTime(FormatStyle.SHORT))
                         )
                 )
-                .description("<branch_name> http://jenkinslink.com")
+                .description(String.format("Jenkins task: %s", jenkinsLink))
                 .launchSource("From Jenkins")
                 .autoTestExternalIds(autoTestsExternalIds)
                 .build();
@@ -118,7 +127,13 @@ public class CucumberReportTransformer {
     }
 
     private static String getExternalId(CucumberElement cucumberElement) {
-        return cucumberElement.getName().split(TEST_NAME_SEPARATOR)[0].trim();
+        if (cucumberElement.getName() != null) {
+            String[] names = cucumberElement.getName().split(TEST_NAME_SEPARATOR);
+            if (names.length > 1) {
+                return names[0].trim();
+            }
+        }
+        throw new ExporterException("Failed to get test name");
     }
 
     private static CucumberStepRunStatus calculateStepRunStatus(CucumberElement cucumberElement) {
