@@ -108,12 +108,12 @@ public class CucumberTestItExporterTask extends DefaultTask {
     }
 
     @Option(option = "jenkins-link", description = "The link to Jenkins build")
-    private void setJenkinsLink(String jenkinsLink) {
+    public void setJenkinsLink(String jenkinsLink) {
         this.jenkinsLink = jenkinsLink;
     }
 
     @Input
-    private String getJenkinsLink() {
+    public String getJenkinsLink() {
         return jenkinsLink;
     }
 
