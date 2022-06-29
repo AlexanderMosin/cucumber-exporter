@@ -29,4 +29,14 @@ public class Configuration {
      * The identifier of TestIt configuration.
      */
     private String configurationId;
+
+    /**
+     * The metadata of test run.
+     */
+    private String testRunMetadata;
+
+    /**
+     * The link to Jenkins build.
+     */
+    private String jenkinsLink;
 }

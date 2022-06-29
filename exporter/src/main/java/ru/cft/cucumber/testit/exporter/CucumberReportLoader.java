@@ -69,7 +69,9 @@ public class CucumberReportLoader {
 
         CucumberReportTransformer reportTransformer = new CucumberReportTransformer(
                 configuration.getProjectId(),
-                configuration.getConfigurationId()
+                configuration.getConfigurationId(),
+                configuration.getTestRunMetadata(),
+                configuration.getJenkinsLink()
         );
 
         List<TestRunData> testRunsData = reportTransformer.transform(report);

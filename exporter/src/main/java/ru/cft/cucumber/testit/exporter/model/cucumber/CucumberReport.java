@@ -3,6 +3,7 @@ package ru.cft.cucumber.testit.exporter.model.cucumber;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,5 +20,13 @@ public class CucumberReport {
 
     public CucumberReport(List<CucumberScenario> scenarios) {
         this.scenarios = scenarios;
+    }
+
+    public CucumberReport() {
+        this.scenarios = new ArrayList<>();
+    }
+
+    public void addScenarios(List<CucumberScenario> scenarios) {
+        this.scenarios.addAll(scenarios);
     }
 }
