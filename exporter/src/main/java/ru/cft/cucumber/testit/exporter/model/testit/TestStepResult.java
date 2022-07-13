@@ -1,6 +1,6 @@
 package ru.cft.cucumber.testit.exporter.model.testit;
 
-import lombok.Builder;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,7 +9,7 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@Builder(builderClassName = "Builder", toBuilder = true)
+@AllArgsConstructor
 public class TestStepResult {
 
     /**

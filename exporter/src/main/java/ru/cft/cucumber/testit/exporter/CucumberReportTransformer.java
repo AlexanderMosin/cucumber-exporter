@@ -1,22 +1,25 @@
 package ru.cft.cucumber.testit.exporter;
 
 import lombok.extern.slf4j.Slf4j;
+import ru.cft.cucumber.testit.exporter.configuration.Configuration;
+import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberElement;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberReport;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberScenario;
+import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberStep;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberStepRunStatus;
+import ru.cft.cucumber.testit.exporter.model.testit.TestRun;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunData;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunResult;
 import ru.cft.cucumber.testit.exporter.model.testit.TestStepResult;
-import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberStep;
-import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberElement;
-import ru.cft.cucumber.testit.exporter.model.testit.TestRun;
 
 import java.time.LocalDateTime;
 import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.time.format.DateTimeFormatter.ofLocalizedDateTime;
@@ -43,16 +46,11 @@ public class CucumberReportTransformer {
 
     private final String jenkinsLink;
 
-    public CucumberReportTransformer(
-            String projectId,
-            String configurationId,
-            String testRunMetadata,
-            String jenkinsLink
-    ) {
-        this.projectId = projectId;
-        this.configurationId = configurationId;
-        this.testRunMetadata = testRunMetadata;
-        this.jenkinsLink = jenkinsLink;
+    public CucumberReportTransformer(Configuration configuration) {
+        this.projectId = configuration.getProjectId();
+        this.configurationId = configuration.getConfigurationId();
+        this.testRunMetadata = configuration.getTestRunMetadata();
+        this.jenkinsLink = configuration.getJenkinsLink();
     }
 
     public List<TestRunData> transform(CucumberReport report) {
@@ -78,9 +76,19 @@ public class CucumberReportTransformer {
                 .collect(Collectors.toList());
     }
 
+    public Set<String> getAutotestNames(CucumberReport report) {
+        Set<String> autotestNames = new HashSet<>();
+        for (CucumberScenario scenario : report.getScenarios()) {
+            for (CucumberElement element : scenario.getElements()) {
+                autotestNames.add(getAutotestName(element));
+            }
+        }
+        return autotestNames;
+    }
+
     private TestRun buildTestRun(String version, List<CucumberElement> cucumberElements) {
         List<String> autoTestsExternalIds = new ArrayList<>(cucumberElements.size());
-        cucumberElements.forEach(element -> autoTestsExternalIds.add(getExternalId(element)));
+        cucumberElements.forEach(element -> autoTestsExternalIds.add(getAutotestName(element)));
 
         return TestRun.builder()
                 .projectId(projectId)
@@ -105,17 +113,16 @@ public class CucumberReportTransformer {
         for (CucumberElement cucumberElement : cucumberElements) {
             List<TestStepResult> stepResults = new ArrayList<>(cucumberElement.getSteps().size());
             for (CucumberStep step : cucumberElement.getSteps()) {
-                stepResults.add(
-                        TestStepResult.builder()
-                                .title(step.getName())
-                                .outcome(step.getResult().getStatus().getValue())
-                                .build()
-                );
+                if (step.getResult() != null && step.getResult().getStatus() != null) {
+                    stepResults.add(new TestStepResult(step.getName(), step.getResult().getStatus().getValue()));
+                } else {
+                    throw new ExporterException(String.format("Failed to get status of the step %s", step.getName()));
+                }
             }
 
             TestRunResult testRunResult = TestRunResult.builder()
                     .configurationId(configurationId)
-                    .autoTestExternalId(getExternalId(cucumberElement))
+                    .autoTestExternalId(getAutotestName(cucumberElement))
                     .outcome(convertToOutcome(cucumberElement))
                     .stepResults(stepResults)
                     .build();
@@ -126,17 +133,17 @@ public class CucumberReportTransformer {
         return testRunResults;
     }
 
-    private static String getExternalId(CucumberElement cucumberElement) {
+    private String getAutotestName(CucumberElement cucumberElement) {
         if (cucumberElement.getName() != null) {
             String[] names = cucumberElement.getName().split(TEST_NAME_SEPARATOR);
             if (names.length > 1) {
-                return names[0].trim();
+                return names[0].replaceAll("[.\\s]+$", "");
             }
         }
         throw new ExporterException("Failed to get test name");
     }
 
-    private static CucumberStepRunStatus calculateStepRunStatus(CucumberElement cucumberElement) {
+    private CucumberStepRunStatus calculateStepRunStatus(CucumberElement cucumberElement) {
         for (CucumberStep step : cucumberElement.getSteps()) {
             if (!step.getResult().getStatus().equals(PASSED)) {
                 return FAILED;
@@ -147,7 +154,7 @@ public class CucumberReportTransformer {
 
     // Statuses are used in cucumber:
     // PASSED, SKIPPED, PENDING, UNDEFINED, AMBIGUOUS, FAILED, UNUSED
-    private static String convertToOutcome(CucumberElement cucumberElement) {
+    private String convertToOutcome(CucumberElement cucumberElement) {
         CucumberStepRunStatus status = calculateStepRunStatus(cucumberElement);
         String outcome;
 
@@ -165,7 +172,7 @@ public class CucumberReportTransformer {
         return outcome;
     }
 
-    private static String getApiVersion(CucumberElement element) {
+    private String getApiVersion(CucumberElement element) {
         for (CucumberStep step : element.getSteps()) {
             if (step.getName().contains(API_VERSION_PREFIX) && !step.getMatch().getArguments().isEmpty()) {
                 return step.getMatch().getArguments().get(0).getValue();
