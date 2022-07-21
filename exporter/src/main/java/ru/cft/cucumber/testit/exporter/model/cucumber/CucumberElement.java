@@ -21,4 +21,14 @@ public class CucumberElement {
      * Steps including in the element.
      */
     private List<CucumberStep> steps;
+
+    /**
+     * Scenario tags
+     */
+    private List<CucumberTag> tags;
+
+    /**
+     * The type of cucumber element: scenario or background
+     */
+    private CucumberElementType type;
 }

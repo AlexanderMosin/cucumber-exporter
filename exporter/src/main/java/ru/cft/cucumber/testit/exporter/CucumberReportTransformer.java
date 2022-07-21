@@ -3,11 +3,15 @@ package ru.cft.cucumber.testit.exporter;
 import lombok.extern.slf4j.Slf4j;
 import ru.cft.cucumber.testit.exporter.configuration.Configuration;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberElement;
+import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberElementType;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberReport;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberScenario;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberStep;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberStepRunStatus;
+import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberTag;
+import ru.cft.cucumber.testit.exporter.model.testit.AutotestChangeData;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRun;
+import ru.cft.cucumber.testit.exporter.model.testit.Autotest;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunData;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunResult;
 import ru.cft.cucumber.testit.exporter.model.testit.TestStepResult;
@@ -16,10 +20,9 @@ import java.time.LocalDateTime;
 import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static java.time.format.DateTimeFormatter.ofLocalizedDateTime;
@@ -36,7 +39,13 @@ public class CucumberReportTransformer {
 
     private static final String API_VERSION_PREFIX = "Версия API: ";
 
-    private static final String TEST_NAME_SEPARATOR = "API";
+    private static final String AUTOTESTS_NAMESPACE = "Автотесты Qpay";
+
+    private static final String TAG_TEMPLATE = "@\\d{2,}";
+
+    private static final String TAG_PREFIX = "@";
+
+    private static final String TEST_NAME_SEPARATOR = "API \\d\\.\\d\\d";
 
     private final String projectId;
 
@@ -53,10 +62,14 @@ public class CucumberReportTransformer {
         this.jenkinsLink = configuration.getJenkinsLink();
     }
 
-    public List<TestRunData> transform(CucumberReport report) {
+    public List<TestRunData> transformForPublishing(CucumberReport report) {
         Map<String, List<CucumberElement>> cucumberElements = new HashMap<>();
         for (CucumberScenario scenario : report.getScenarios()) {
-            for (CucumberElement element : scenario.getElements()) {
+            List<CucumberElement> elements = scenario.getElements().stream()
+                    .filter(e -> isValidCucumberElement(e.getType(), getTagId(e)))
+                    .collect(Collectors.toList());
+
+            for (CucumberElement element : elements) {
                 String version = getApiVersion(element);
                 cucumberElements.putIfAbsent(version, new ArrayList<>());
                 cucumberElements.get(version).add(element);
@@ -76,19 +89,73 @@ public class CucumberReportTransformer {
                 .collect(Collectors.toList());
     }
 
-    public Set<String> getAutotestNames(CucumberReport report) {
-        Set<String> autotestNames = new HashSet<>();
-        for (CucumberScenario scenario : report.getScenarios()) {
-            for (CucumberElement element : scenario.getElements()) {
-                autotestNames.add(getAutotestName(element));
+    public AutotestChangeData transformForSynchronization(
+            CucumberReport report,
+            Map<String, Autotest> autotestsFromTestIt
+    ) {
+        Map<String, Autotest> autotestsFromReport = getAutotestsFromReport(report);
+
+        List<Autotest> autotestsToDelete = autotestsFromTestIt.entrySet()
+                .stream()
+                .filter(a -> !autotestsFromReport.containsKey(a.getKey()))
+                .map(Map.Entry::getValue)
+                .collect(Collectors.toList());
+
+        List<Autotest> autotestsToCreate = new ArrayList<>();
+        List<Autotest> autotestsToUpdate = new ArrayList<>();
+
+        for(Map.Entry<String, Autotest> autotest : autotestsFromReport.entrySet()) {
+            String externalId = autotest.getKey();
+            if (autotestsFromTestIt.containsKey(externalId)) {
+                Autotest autotestFromTestIt = autotestsFromTestIt.get(externalId);
+                Autotest autotestFromReport = autotest.getValue();
+                if (!autotestFromTestIt.getName().equals(autotestFromReport.getName())
+                        && !autotestFromTestIt.getTitle().equals(autotestFromReport.getTitle())
+                        && !autotestFromTestIt.getClassname().equals(autotestFromReport.getClassname())
+                        && !autotestFromTestIt.getNamespace().equals(autotestFromReport.getNamespace())
+                ) {
+                    autotestsToUpdate.add(autotestFromReport);
+                }
+            } else {
+                autotestsToCreate.add(autotest.getValue());
             }
         }
-        return autotestNames;
+
+        return AutotestChangeData.builder()
+                .autotestsToCreate(autotestsToCreate)
+                .autotestsToUpdate(autotestsToUpdate)
+                .autotestsToDelete(autotestsToDelete)
+                .build();
+    }
+
+    private Map<String, Autotest> getAutotestsFromReport(CucumberReport report) {
+        Map<String, Autotest> autotestsFromReport = new HashMap<>();
+        for (CucumberScenario scenario : report.getScenarios()) {
+            for (CucumberElement element : scenario.getElements()) {
+                String tagId = getTagId(element);
+                if (isValidCucumberElement(element.getType(), tagId)) {
+                    String name = getAutotestName(element, tagId);
+                    Autotest autotest = Autotest.builder()
+                            .externalId(tagId)
+                            .shouldCreateWorkItem(true)
+                            .projectId(projectId)
+                            .name(name != null ? name : tagId)
+                            .title(name)
+                            .classname(scenario.getName())
+                            .namespace(AUTOTESTS_NAMESPACE)
+                            .build();
+                    autotestsFromReport.put(tagId, autotest);
+                }
+            }
+        }
+        return autotestsFromReport;
     }
 
     private TestRun buildTestRun(String version, List<CucumberElement> cucumberElements) {
-        List<String> autoTestsExternalIds = new ArrayList<>(cucumberElements.size());
-        cucumberElements.forEach(element -> autoTestsExternalIds.add(getAutotestName(element)));
+        List<String> autoTests = cucumberElements.stream()
+                .map(this::getTagId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
         return TestRun.builder()
                 .projectId(projectId)
@@ -103,7 +170,7 @@ public class CucumberReportTransformer {
                 )
                 .description(String.format("Jenkins task: %s", jenkinsLink))
                 .launchSource("From Jenkins")
-                .autoTestExternalIds(autoTestsExternalIds)
+                .autoTestExternalIds(autoTests)
                 .build();
     }
 
@@ -122,7 +189,7 @@ public class CucumberReportTransformer {
 
             TestRunResult testRunResult = TestRunResult.builder()
                     .configurationId(configurationId)
-                    .autoTestExternalId(getAutotestName(cucumberElement))
+                    .autoTestExternalId(getTagId(cucumberElement))
                     .outcome(convertToOutcome(cucumberElement))
                     .stepResults(stepResults)
                     .build();
@@ -131,16 +198,6 @@ public class CucumberReportTransformer {
         }
 
         return testRunResults;
-    }
-
-    private String getAutotestName(CucumberElement cucumberElement) {
-        if (cucumberElement.getName() != null) {
-            String[] names = cucumberElement.getName().split(TEST_NAME_SEPARATOR);
-            if (names.length > 1) {
-                return names[0].replaceAll("[.\\s]+$", "");
-            }
-        }
-        throw new ExporterException("Failed to get test name");
     }
 
     private CucumberStepRunStatus calculateStepRunStatus(CucumberElement cucumberElement) {
@@ -172,12 +229,34 @@ public class CucumberReportTransformer {
         return outcome;
     }
 
-    private String getApiVersion(CucumberElement element) {
-        for (CucumberStep step : element.getSteps()) {
+    private String getAutotestName(CucumberElement cucumberElement, String tagId) {
+        if (cucumberElement.getName() != null) {
+            return cucumberElement.getName().replaceAll(TEST_NAME_SEPARATOR, "").trim();
+        }
+        log.warn("Failed to get name of test '{}'", tagId);
+        return tagId;
+    }
+
+    private String getApiVersion(CucumberElement cucumberElement) {
+        for (CucumberStep step : cucumberElement.getSteps()) {
             if (step.getName().contains(API_VERSION_PREFIX) && !step.getMatch().getArguments().isEmpty()) {
                 return step.getMatch().getArguments().get(0).getValue();
             }
         }
         return "unknown version";
+    }
+
+    private String getTagId(CucumberElement cucumberElement) {
+        for (CucumberTag tag : cucumberElement.getTags()) {
+            if (tag.getName().matches(TAG_TEMPLATE)) {
+                return tag.getName().replace(TAG_PREFIX, "");
+            }
+        }
+        log.warn("Test '{}' doesn't have unique tag", cucumberElement.getName());
+        return null;
+    }
+
+    private boolean isValidCucumberElement(CucumberElementType type, String tagId) {
+        return CucumberElementType.SCENARIO == type && tagId != null;
     }
 }

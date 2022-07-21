@@ -10,15 +10,17 @@ import ru.cft.cucumber.testit.exporter.configuration.Configuration;
 import ru.cft.cucumber.testit.exporter.json.JsonSerializer;
 import ru.cft.cucumber.testit.exporter.model.cucumber.CucumberReport;
 import ru.cft.cucumber.testit.exporter.model.testit.Autotest;
+import ru.cft.cucumber.testit.exporter.model.testit.AutotestChangeData;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRun;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunData;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunResult;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
@@ -36,9 +38,11 @@ public class CucumberReportLoader {
 
     private static final String TEST_RESULTS_PATH = "/v2/testRuns/%s/testResults";
 
-    private static final String AUTOTESTS_PATH = "/v2/autoTests/?";
+    private static final String AUTOTESTS_PATH = "/v2/autoTests";
 
     private static final String ID_FIELD = "id";
+
+    private static final String IS_DELETED_PARAM = "isDeleted=";
 
     private static final String PROJECT_ID_PARAM = "projectId=";
 
@@ -46,7 +50,7 @@ public class CucumberReportLoader {
 
     private static final String TAKE_PARAM = "take=";
 
-    private static final int BATCH_SIZE = 50;
+    private static final int BATCH_SIZE = 100;
 
     private final Configuration configuration;
 
@@ -63,7 +67,7 @@ public class CucumberReportLoader {
     }
 
     private void publishResults(CucumberReport report, CucumberReportTransformer reportTransformer) {
-        List<TestRunData> testRunsData = reportTransformer.transform(report);
+        List<TestRunData> testRunsData = reportTransformer.transformForPublishing(report);
         for (TestRunData testRunData : testRunsData) {
             String testRunId = createTestRun(testRunData.getTestRun());
             addResultsToTestRun(testRunId, testRunData.getTestRunResults());
@@ -71,21 +75,11 @@ public class CucumberReportLoader {
     }
 
     private void synchronizeAutotestStructure(CucumberReport report, CucumberReportTransformer reportTransformer) {
-        Set<String> cucumberAutotestNames = reportTransformer.getAutotestNames(report);
-
-        List<Autotest> testItAutotests = getAutotests();
-        Set<String> testItActiveAutotestsIds = testItAutotests.stream()
-                .filter(e -> !e.isDeleted())
-                .map(Autotest::getExternalId)
-                .collect(Collectors.toSet());
-
-        List<String> autotestsIdsToAdd = cucumberAutotestNames.stream()
-                .filter(n -> !testItActiveAutotestsIds.contains(n))
-                .collect(Collectors.toList());
-
-        List<String> autotestsIdsToDelete = testItActiveAutotestsIds.stream()
-                .filter(n -> !cucumberAutotestNames.contains(n))
-                .collect(Collectors.toList());
+        Map<String, Autotest> autotestsFromTestIt = getAutotests();
+        AutotestChangeData autotestData = reportTransformer.transformForSynchronization(report, autotestsFromTestIt);
+        autotestData.getAutotestsToCreate().forEach(this::createAutotest);
+        autotestData.getAutotestsToUpdate().forEach(this::updateAutotest);
+        autotestData.getAutotestsToDelete().forEach(this::deleteAutotest);
     }
 
     private String createTestRun(TestRun testRun) {
@@ -110,15 +104,27 @@ public class CucumberReportLoader {
         );
     }
 
-    private List<Autotest> getAutotests() {
-        List<Autotest> autotests = new ArrayList<>();
+    private void createAutotest(Autotest autotest) {
+        sendPostRequest(AUTOTESTS_PATH, autotest, HttpStatus.SC_CREATED);
+    }
+
+    private void deleteAutotest(Autotest autotest) {
+        sendDeleteRequest(AUTOTESTS_PATH + "/" + autotest.getGlobalId());
+    }
+
+    private void updateAutotest(Autotest autotest) {
+        sendPutRequest(AUTOTESTS_PATH, autotest);
+    }
+
+    private Map<String, Autotest> getAutotests() {
+        Set<Autotest> autotests = new HashSet<>();
         int offset = 0;
         HttpResponse response;
 
         do {
             String params = PROJECT_ID_PARAM + configuration.getProjectId() + "&" + SKIP_PARAM + offset + "&"
-                    + TAKE_PARAM + BATCH_SIZE;
-            response = sendGetRequest(AUTOTESTS_PATH + params);
+                    + TAKE_PARAM + BATCH_SIZE + "&" + IS_DELETED_PARAM + "false";
+            response = sendGetRequest(AUTOTESTS_PATH + "/" + "?" + params);
             try {
                 autotests.addAll(deserialize(EntityUtils.toString(response.getEntity()), new TypeReference<>() {}));
             } catch (IOException e) {
@@ -128,7 +134,7 @@ public class CucumberReportLoader {
         }
         while (response.getEntity().getContentLength() > 2);
 
-        return autotests;
+        return autotests.stream().collect(Collectors.toMap(Autotest::getExternalId, Function.identity()));
     }
 
     private HttpResponse sendPostRequest(String path, Object requestBody, int expectedStatusCode) {
@@ -138,9 +144,19 @@ public class CucumberReportLoader {
         return HttpUtils.sendRequest(request, configuration.getPrivateToken(), expectedStatusCode);
     }
 
-    private HttpResponse sendGetRequest(String uri) {
-        Request request = Request.Get(configuration.getUrl() + uri);
-
+    private HttpResponse sendGetRequest(String path) {
+        Request request = Request.Get(configuration.getUrl() + path);
         return HttpUtils.sendRequest(request, configuration.getPrivateToken(), HttpStatus.SC_OK);
+    }
+
+    private void sendDeleteRequest(String path) {
+        Request request = Request.Delete(configuration.getUrl() + path);
+        HttpUtils.sendRequest(request, configuration.getPrivateToken(), HttpStatus.SC_NO_CONTENT);
+    }
+
+    private void sendPutRequest(String path, Object requestBody) {
+        String json = JsonSerializer.serialize(requestBody);
+        Request request = Request.Put(configuration.getUrl() + path).bodyString(json, APPLICATION_JSON);
+        HttpUtils.sendRequest(request, configuration.getPrivateToken(), HttpStatus.SC_NO_CONTENT);
     }
 }
