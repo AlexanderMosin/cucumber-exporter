@@ -16,4 +16,9 @@ public class CucumberScenario {
      * Elements including in the scenario.
      */
     private List<CucumberElement> elements;
+
+    /**
+     * Name of scenario
+     */
+    private String name;
 }

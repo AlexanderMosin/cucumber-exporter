@@ -20,9 +20,44 @@ public class Autotest {
     }
 
     /**
-     * The external identifier of autotest.
+     * External identifier of autotest in TestIt
      */
     private String externalId;
+
+    /**
+     * Global identifier of object in TestIt
+     */
+    private String globalId;
+
+    /**
+     * Identifier of TestIt project.
+     */
+    private String projectId;
+
+    /**
+     * Name of autotest in TestIt
+     */
+    private String name;
+
+    /**
+     * Title of autotest in TestIt
+     */
+    private String title;
+
+    /**
+     * Name of a group or package where this autotest's class is located
+     */
+    private String namespace;
+
+    /**
+     * Name of a group or package where this autotest's class is located
+     */
+    private String classname;
+
+    /**
+     * Should create workitem when autotest was added
+     */
+    private boolean shouldCreateWorkItem;
 
     /**
      * The test was deleted or not.
