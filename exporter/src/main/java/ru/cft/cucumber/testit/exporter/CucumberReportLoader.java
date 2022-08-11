@@ -16,6 +16,7 @@ import ru.cft.cucumber.testit.exporter.model.testit.TestRunData;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunResult;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -77,9 +78,11 @@ public class CucumberReportLoader {
     private void synchronizeAutotestStructure(CucumberReport report, CucumberReportTransformer reportTransformer) {
         Map<String, Autotest> autotestsFromTestIt = getAutotests();
         AutotestChangeData autotestData = reportTransformer.transformForSynchronization(report, autotestsFromTestIt);
+        List<String> atnames = new ArrayList<>();
+        autotestData.getAutotestsToCreate().forEach(a -> atnames.add(a.getTitle()));
         autotestData.getAutotestsToCreate().forEach(this::createAutotest);
         autotestData.getAutotestsToUpdate().forEach(this::updateAutotest);
-        autotestData.getAutotestsToDelete().forEach(this::deleteAutotest);
+        autotestData.getAutotestsToArchive().forEach(this::updateAutotest);
     }
 
     private String createTestRun(TestRun testRun) {
@@ -108,9 +111,9 @@ public class CucumberReportLoader {
         sendPostRequest(AUTOTESTS_PATH, autotest, HttpStatus.SC_CREATED);
     }
 
-    private void deleteAutotest(Autotest autotest) {
-        sendDeleteRequest(AUTOTESTS_PATH + "/" + autotest.getGlobalId());
-    }
+//    private void deleteAutotest(Autotest autotest) {
+//        sendDeleteRequest(AUTOTESTS_PATH + "/" + autotest.getGlobalId());
+//    }
 
     private void updateAutotest(Autotest autotest) {
         sendPutRequest(AUTOTESTS_PATH, autotest);

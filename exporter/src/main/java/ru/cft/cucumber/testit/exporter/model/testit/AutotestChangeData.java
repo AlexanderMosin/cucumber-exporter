@@ -27,5 +27,5 @@ public class AutotestChangeData {
     /**
      * Autotests that need to be deleted
      */
-    private List<Autotest> autotestsToDelete;
+    private List<Autotest> autotestsToArchive;
 }

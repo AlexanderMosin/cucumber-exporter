@@ -41,11 +41,13 @@ public class CucumberReportTransformer {
 
     private static final String AUTOTESTS_NAMESPACE = "Автотесты Qpay";
 
+    private static final String ARCHIVE_NAMESPACE = "Архив";
+
     private static final String TAG_TEMPLATE = "@\\d{2,}";
 
     private static final String TAG_PREFIX = "@";
 
-    private static final String TEST_NAME_SEPARATOR = "API \\d\\.\\d\\d";
+    private static final String TEST_NAME_SEPARATOR = "API.*";
 
     private final String projectId;
 
@@ -65,8 +67,10 @@ public class CucumberReportTransformer {
     public List<TestRunData> transformForPublishing(CucumberReport report) {
         Map<String, List<CucumberElement>> cucumberElements = new HashMap<>();
         for (CucumberScenario scenario : report.getScenarios()) {
-            List<CucumberElement> elements = scenario.getElements().stream()
-                    .filter(e -> isValidCucumberElement(e.getType(), getTagId(e)))
+            List<CucumberElement> elements = scenario.getElements()
+                    .stream()
+//                    .filter(e -> e.getType() == CucumberElementType.SCENARIO)
+                    .filter(e -> getTagId(e) != null)
                     .collect(Collectors.toList());
 
             for (CucumberElement element : elements) {
@@ -94,17 +98,21 @@ public class CucumberReportTransformer {
             Map<String, Autotest> autotestsFromTestIt
     ) {
         Map<String, Autotest> autotestsFromReport = getAutotestsFromReport(report);
-
-        List<Autotest> autotestsToDelete = autotestsFromTestIt.entrySet()
-                .stream()
-                .filter(a -> !autotestsFromReport.containsKey(a.getKey()))
-                .map(Map.Entry::getValue)
-                .collect(Collectors.toList());
+        List<String> atnames = autotestsFromReport.entrySet().stream().map(a -> a.getValue().getTitle()).collect(Collectors.toList());
+        List<Autotest> autotestsToArchive = new ArrayList<>();
+        for (Map.Entry<String, Autotest> autotest : autotestsFromTestIt.entrySet()) {
+            String externalId = autotest.getKey();
+            Autotest autotestValue = autotest.getValue();
+            if (!autotestsFromReport.containsKey(externalId) && !autotestValue.getClassname().equals(ARCHIVE_NAMESPACE)) {
+                autotestValue.setClassname(ARCHIVE_NAMESPACE);
+                autotestsToArchive.add(autotestValue);
+            }
+        }
 
         List<Autotest> autotestsToCreate = new ArrayList<>();
         List<Autotest> autotestsToUpdate = new ArrayList<>();
 
-        for(Map.Entry<String, Autotest> autotest : autotestsFromReport.entrySet()) {
+        for (Map.Entry<String, Autotest> autotest : autotestsFromReport.entrySet()) {
             String externalId = autotest.getKey();
             if (autotestsFromTestIt.containsKey(externalId)) {
                 Autotest autotestFromTestIt = autotestsFromTestIt.get(externalId);
@@ -124,7 +132,7 @@ public class CucumberReportTransformer {
         return AutotestChangeData.builder()
                 .autotestsToCreate(autotestsToCreate)
                 .autotestsToUpdate(autotestsToUpdate)
-                .autotestsToDelete(autotestsToDelete)
+                .autotestsToArchive(autotestsToArchive)
                 .build();
     }
 
@@ -132,20 +140,22 @@ public class CucumberReportTransformer {
         Map<String, Autotest> autotestsFromReport = new HashMap<>();
         for (CucumberScenario scenario : report.getScenarios()) {
             for (CucumberElement element : scenario.getElements()) {
-                String tagId = getTagId(element);
-                if (isValidCucumberElement(element.getType(), tagId)) {
-                    String name = getAutotestName(element, tagId);
-                    Autotest autotest = Autotest.builder()
-                            .externalId(tagId)
-                            .shouldCreateWorkItem(true)
-                            .projectId(projectId)
-                            .name(name != null ? name : tagId)
-                            .title(name)
-                            .classname(scenario.getName())
-                            .namespace(AUTOTESTS_NAMESPACE)
-                            .build();
-                    autotestsFromReport.put(tagId, autotest);
-                }
+//                if (element.getType() == CucumberElementType.SCENARIO) {
+                    String tagId = getTagId(element);
+                    if (tagId != null) {
+                        String name = getAutotestName(element, tagId);
+                        Autotest autotest = Autotest.builder()
+                                .externalId(tagId)
+                                .shouldCreateWorkItem(true)
+                                .projectId(projectId)
+                                .name(name != null ? name : tagId)
+                                .title(name)
+                                .classname(scenario.getName())
+                                .namespace(AUTOTESTS_NAMESPACE)
+                                .build();
+                        autotestsFromReport.put(tagId, autotest);
+                    }
+//                }
             }
         }
         return autotestsFromReport;
@@ -247,16 +257,19 @@ public class CucumberReportTransformer {
     }
 
     private String getTagId(CucumberElement cucumberElement) {
-        for (CucumberTag tag : cucumberElement.getTags()) {
-            if (tag.getName().matches(TAG_TEMPLATE)) {
-                return tag.getName().replace(TAG_PREFIX, "");
+        if (cucumberElement.getType() == CucumberElementType.SCENARIO) {
+            for (CucumberTag tag : cucumberElement.getTags()) {
+                if (tag.getName().matches(TAG_TEMPLATE)) {
+                    return tag.getName().replace(TAG_PREFIX, "");
+                }
             }
+            log.warn("Test '{}' doesn't have unique tag", cucumberElement.getName());
         }
-        log.warn("Test '{}' doesn't have unique tag", cucumberElement.getName());
+
         return null;
     }
 
-    private boolean isValidCucumberElement(CucumberElementType type, String tagId) {
-        return CucumberElementType.SCENARIO == type && tagId != null;
-    }
+//    private boolean isValidCucumberElement(CucumberElementType type, String tagId) {
+//        return CucumberElementType.SCENARIO == type && tagId != null;
+//    }
 }
