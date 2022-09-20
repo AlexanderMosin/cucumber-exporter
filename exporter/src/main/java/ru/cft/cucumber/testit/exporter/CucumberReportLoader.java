@@ -16,7 +16,6 @@ import ru.cft.cucumber.testit.exporter.model.testit.TestRunData;
 import ru.cft.cucumber.testit.exporter.model.testit.TestRunResult;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -78,8 +77,6 @@ public class CucumberReportLoader {
     private void synchronizeAutotestStructure(CucumberReport report, CucumberReportTransformer reportTransformer) {
         Map<String, Autotest> autotestsFromTestIt = getAutotests();
         AutotestChangeData autotestData = reportTransformer.transformForSynchronization(report, autotestsFromTestIt);
-        List<String> atnames = new ArrayList<>();
-        autotestData.getAutotestsToCreate().forEach(a -> atnames.add(a.getTitle()));
         autotestData.getAutotestsToCreate().forEach(this::createAutotest);
         autotestData.getAutotestsToUpdate().forEach(this::updateAutotest);
         autotestData.getAutotestsToArchive().forEach(this::updateAutotest);
@@ -110,10 +107,6 @@ public class CucumberReportLoader {
     private void createAutotest(Autotest autotest) {
         sendPostRequest(AUTOTESTS_PATH, autotest, HttpStatus.SC_CREATED);
     }
-
-//    private void deleteAutotest(Autotest autotest) {
-//        sendDeleteRequest(AUTOTESTS_PATH + "/" + autotest.getGlobalId());
-//    }
 
     private void updateAutotest(Autotest autotest) {
         sendPutRequest(AUTOTESTS_PATH, autotest);
@@ -150,11 +143,6 @@ public class CucumberReportLoader {
     private HttpResponse sendGetRequest(String path) {
         Request request = Request.Get(configuration.getUrl() + path);
         return HttpUtils.sendRequest(request, configuration.getPrivateToken(), HttpStatus.SC_OK);
-    }
-
-    private void sendDeleteRequest(String path) {
-        Request request = Request.Delete(configuration.getUrl() + path);
-        HttpUtils.sendRequest(request, configuration.getPrivateToken(), HttpStatus.SC_NO_CONTENT);
     }
 
     private void sendPutRequest(String path, Object requestBody) {

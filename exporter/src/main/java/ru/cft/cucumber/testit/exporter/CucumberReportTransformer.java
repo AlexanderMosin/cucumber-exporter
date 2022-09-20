@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static java.time.format.DateTimeFormatter.ofLocalizedDateTime;
@@ -69,8 +68,7 @@ public class CucumberReportTransformer {
         for (CucumberScenario scenario : report.getScenarios()) {
             List<CucumberElement> elements = scenario.getElements()
                     .stream()
-//                    .filter(e -> e.getType() == CucumberElementType.SCENARIO)
-                    .filter(e -> getTagId(e) != null)
+                    .filter(this::isValidCucumberScenario)
                     .collect(Collectors.toList());
 
             for (CucumberElement element : elements) {
@@ -98,7 +96,6 @@ public class CucumberReportTransformer {
             Map<String, Autotest> autotestsFromTestIt
     ) {
         Map<String, Autotest> autotestsFromReport = getAutotestsFromReport(report);
-        List<String> atnames = autotestsFromReport.entrySet().stream().map(a -> a.getValue().getTitle()).collect(Collectors.toList());
         List<Autotest> autotestsToArchive = new ArrayList<>();
         for (Map.Entry<String, Autotest> autotest : autotestsFromTestIt.entrySet()) {
             String externalId = autotest.getKey();
@@ -118,9 +115,9 @@ public class CucumberReportTransformer {
                 Autotest autotestFromTestIt = autotestsFromTestIt.get(externalId);
                 Autotest autotestFromReport = autotest.getValue();
                 if (!autotestFromTestIt.getName().equals(autotestFromReport.getName())
-                        && !autotestFromTestIt.getTitle().equals(autotestFromReport.getTitle())
-                        && !autotestFromTestIt.getClassname().equals(autotestFromReport.getClassname())
-                        && !autotestFromTestIt.getNamespace().equals(autotestFromReport.getNamespace())
+                        || !autotestFromTestIt.getTitle().equals(autotestFromReport.getTitle())
+                        || !autotestFromTestIt.getClassname().equals(autotestFromReport.getClassname())
+                        || !autotestFromTestIt.getNamespace().equals(autotestFromReport.getNamespace())
                 ) {
                     autotestsToUpdate.add(autotestFromReport);
                 }
@@ -140,13 +137,12 @@ public class CucumberReportTransformer {
         Map<String, Autotest> autotestsFromReport = new HashMap<>();
         for (CucumberScenario scenario : report.getScenarios()) {
             for (CucumberElement element : scenario.getElements()) {
-//                if (element.getType() == CucumberElementType.SCENARIO) {
+                if (element.getType() == CucumberElementType.SCENARIO) {
                     String tagId = getTagId(element);
-                    if (tagId != null) {
                         String name = getAutotestName(element, tagId);
                         Autotest autotest = Autotest.builder()
                                 .externalId(tagId)
-                                .shouldCreateWorkItem(true)
+                                .shouldCreateWorkItem(false)
                                 .projectId(projectId)
                                 .name(name != null ? name : tagId)
                                 .title(name)
@@ -154,8 +150,7 @@ public class CucumberReportTransformer {
                                 .namespace(AUTOTESTS_NAMESPACE)
                                 .build();
                         autotestsFromReport.put(tagId, autotest);
-                    }
-//                }
+                }
             }
         }
         return autotestsFromReport;
@@ -163,8 +158,8 @@ public class CucumberReportTransformer {
 
     private TestRun buildTestRun(String version, List<CucumberElement> cucumberElements) {
         List<String> autoTests = cucumberElements.stream()
+                .filter(e -> e.getType() == CucumberElementType.SCENARIO)
                 .map(this::getTagId)
-                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         return TestRun.builder()
@@ -257,19 +252,22 @@ public class CucumberReportTransformer {
     }
 
     private String getTagId(CucumberElement cucumberElement) {
-        if (cucumberElement.getType() == CucumberElementType.SCENARIO) {
-            for (CucumberTag tag : cucumberElement.getTags()) {
-                if (tag.getName().matches(TAG_TEMPLATE)) {
-                    return tag.getName().replace(TAG_PREFIX, "");
-                }
+        for (CucumberTag tag : cucumberElement.getTags()) {
+            if (tag.getName().matches(TAG_TEMPLATE)) {
+                return tag.getName().replace(TAG_PREFIX, "");
             }
-            log.warn("Test '{}' doesn't have unique tag", cucumberElement.getName());
         }
-
-        return null;
+        throw new ExporterException(String.format("Test %s doesn't have unique tag", cucumberElement.getName()));
     }
 
-//    private boolean isValidCucumberElement(CucumberElementType type, String tagId) {
-//        return CucumberElementType.SCENARIO == type && tagId != null;
-//    }
+    private boolean isValidCucumberScenario(CucumberElement cucumberElement) {
+        if (CucumberElementType.SCENARIO == cucumberElement.getType()) {
+            for (CucumberTag tag : cucumberElement.getTags()) {
+                if (tag.getName().matches(TAG_TEMPLATE)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }
