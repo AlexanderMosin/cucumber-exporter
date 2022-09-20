@@ -139,17 +139,17 @@ public class CucumberReportTransformer {
             for (CucumberElement element : scenario.getElements()) {
                 if (element.getType() == CucumberElementType.SCENARIO) {
                     String tagId = getTagId(element);
-                        String name = getAutotestName(element, tagId);
-                        Autotest autotest = Autotest.builder()
-                                .externalId(tagId)
-                                .shouldCreateWorkItem(false)
-                                .projectId(projectId)
-                                .name(name != null ? name : tagId)
-                                .title(name)
-                                .classname(scenario.getName())
-                                .namespace(AUTOTESTS_NAMESPACE)
-                                .build();
-                        autotestsFromReport.put(tagId, autotest);
+                    String name = getAutotestName(element, tagId);
+                    Autotest autotest = Autotest.builder()
+                            .externalId(tagId)
+                            .shouldCreateWorkItem(false)
+                            .projectId(projectId)
+                            .name(name != null ? name : tagId)
+                            .title(name)
+                            .classname(scenario.getName())
+                            .namespace(AUTOTESTS_NAMESPACE)
+                            .build();
+                    autotestsFromReport.put(tagId, autotest);
                 }
             }
         }
