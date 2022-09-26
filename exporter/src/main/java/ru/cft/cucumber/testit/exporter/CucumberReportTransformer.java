@@ -97,23 +97,23 @@ public class CucumberReportTransformer {
     ) {
         Map<String, Autotest> autotestsFromReport = getAutotestsFromReport(report);
         List<Autotest> autotestsToArchive = new ArrayList<>();
-        for (Map.Entry<String, Autotest> autotest : autotestsFromTestIt.entrySet()) {
-            String externalId = autotest.getKey();
-            Autotest autotestValue = autotest.getValue();
-            if (!autotestsFromReport.containsKey(externalId) && !autotestValue.getClassname().equals(ARCHIVE_NAMESPACE)) {
-                autotestValue.setClassname(ARCHIVE_NAMESPACE);
-                autotestsToArchive.add(autotestValue);
+        for (Map.Entry<String, Autotest> entry : autotestsFromTestIt.entrySet()) {
+            String externalId = entry.getKey();
+            Autotest autotest = entry.getValue();
+            if (!autotestsFromReport.containsKey(externalId) && !autotest.getClassname().equals(ARCHIVE_NAMESPACE)) {
+                autotest.setClassname(ARCHIVE_NAMESPACE);
+                autotestsToArchive.add(autotest);
             }
         }
 
         List<Autotest> autotestsToCreate = new ArrayList<>();
         List<Autotest> autotestsToUpdate = new ArrayList<>();
 
-        for (Map.Entry<String, Autotest> autotest : autotestsFromReport.entrySet()) {
-            String externalId = autotest.getKey();
+        for (Map.Entry<String, Autotest> entry : autotestsFromReport.entrySet()) {
+            String externalId = entry.getKey();
             if (autotestsFromTestIt.containsKey(externalId)) {
                 Autotest autotestFromTestIt = autotestsFromTestIt.get(externalId);
-                Autotest autotestFromReport = autotest.getValue();
+                Autotest autotestFromReport = entry.getValue();
                 if (!autotestFromTestIt.getName().equals(autotestFromReport.getName())
                         || !autotestFromTestIt.getTitle().equals(autotestFromReport.getTitle())
                         || !autotestFromTestIt.getClassname().equals(autotestFromReport.getClassname())
@@ -122,7 +122,7 @@ public class CucumberReportTransformer {
                     autotestsToUpdate.add(autotestFromReport);
                 }
             } else {
-                autotestsToCreate.add(autotest.getValue());
+                autotestsToCreate.add(entry.getValue());
             }
         }
 
@@ -142,7 +142,6 @@ public class CucumberReportTransformer {
                     String name = getAutotestName(element, tagId);
                     Autotest autotest = Autotest.builder()
                             .externalId(tagId)
-                            .shouldCreateWorkItem(false)
                             .projectId(projectId)
                             .name(name != null ? name : tagId)
                             .title(name)

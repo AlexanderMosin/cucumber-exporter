@@ -53,14 +53,4 @@ public class Autotest {
      * Name of a group or package where this autotest's class is located
      */
     private String classname;
-
-    /**
-     * Should create workitem when autotest was added
-     */
-    private boolean shouldCreateWorkItem;
-
-    /**
-     * The test was deleted or not.
-     */
-    private boolean isDeleted;
 }

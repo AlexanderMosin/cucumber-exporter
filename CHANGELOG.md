@@ -1,9 +1,9 @@
 # Release notes
 
 ## Version 1.0.4
-Bugfix. Scenario with section Background are processed successfully.
+Bugfix. Scenarios with section Background are processed successfully.
 TestIt autotests which are missing in the Cucumber report moved to the archive namespace.
-Workitem are not registered when creating autotest.   
+Work items are not registered when creating autotest.   
 
 ## Version 1.0.3
 Changed a link between Cucumber autotest and TestIt autotest from name to unique tag.
