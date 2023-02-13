@@ -1,7 +1,7 @@
 buildscript {
     ext.repos = {
         maven {
-            url "http://dpci-dev.ftc.ru:8081/artifactory/repo"
+           
             allowInsecureProtocol true
         }
     }
