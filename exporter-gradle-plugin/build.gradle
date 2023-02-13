@@ -3,8 +3,8 @@ apply plugin: 'java-gradle-plugin'
 gradlePlugin {
     plugins {
         simplePlugin {
-            id = 'ru.cft.cucumber.testit.exporter'
-            implementationClass = 'ru.cft.cucumber.testit.exporter.gradle.plugin.CucumberTestItExporterPlugin'
+            id = 'cucumber.testit.exporter'
+            implementationClass = 'cucumber.testit.exporter.gradle.plugin.CucumberTestItExporterPlugin'
         }
     }
 }

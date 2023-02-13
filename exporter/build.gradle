@@ -20,5 +20,8 @@ dependencies {
 
     implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion"
 
-    implementation 'org.apache.httpcomponents:fluent-hc:4.5.13'
+    implementation 'org.apache.httpcomponents:fluent-hc:4.5.14'
+
+//    implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
+
 }
